@@ -13,18 +13,7 @@
 
 #include <arpa/inet.h>
 
-#include <exception>
-
-enum Protocol {TCP, UDP, CONN_UDP};
-
-class ClientException : public std::exception {
-    public:
-        ClientException(const char *msg, bool sysMsg=false) throw();
-        ~ClientException() throw();
-        const char *what() const throw();
-    private:
-        std::string userMessage;
-};
+#include "common.hpp"
 
 class Client {
     private:

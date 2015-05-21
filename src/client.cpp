@@ -1,6 +1,6 @@
 #include "client.hpp"
 
-ClientException::ClientException(const char *message, bool sysMsg)
+NetException::NetException(const char *message, bool sysMsg)
     throw() : userMessage(message) {
         if (sysMsg) {
             userMessage.append(": ");
@@ -8,7 +8,7 @@ ClientException::ClientException(const char *message, bool sysMsg)
         }
     }
 
-const char *ClientException::what() const throw() {
+const char *NetException::what() const throw() {
     return userMessage.c_str();
 }
 
@@ -29,7 +29,7 @@ Client::~Client() {
 }
 
 void Client::Connect() {
-    // for constructing a ClientException, if need be
+    // for constructing a NetException, if need be
     const char *error_msg;
     // standard UNIX socket stuff, like in beej
     struct addrinfo hints, *servinfo, *p;
@@ -77,7 +77,7 @@ error:
     sockfd = -1; //fallthrough -->
 early_error:
     freeaddrinfo(servinfo);
-    throw ClientException(error_msg);
+    throw NetException(error_msg);
 done:
     memmove(&this->ai_addr, p->ai_addr, p->ai_addrlen);
     freeaddrinfo(servinfo);
@@ -89,12 +89,12 @@ int Client::Send(const char *data, int len) {
     if (this->proto == Protocol::UDP) {
         if ((numbytes = sendto(this->sockfd, data, len, 0,
              &this->ai_addr, sizeof this->ai_addr)) == -1) {
-            throw ClientException("UDP send failed - ", true);
+            throw NetException("UDP send failed - ", true);
         }
     }
     else {
         if ((numbytes = send(this->sockfd, data, len, 0)) == -1)
-           throw ClientException("Connected send failed - ", true); 
+           throw NetException("Connected send failed - ", true); 
     }
 
     return numbytes;
