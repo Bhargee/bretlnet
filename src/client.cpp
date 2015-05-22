@@ -1,25 +1,20 @@
 #include "client.hpp"
 
-Client::Client(Protocol p, const char *connectAddr, int portNum) {
+Client::Client(Protocol p, const char *connectAddr, int portNum) : BretlNetService(portNum) {
     this->proto = p;
-
-    this->connectAddr = (char *)malloc(sizeof(connectAddr));
-    memcpy(this->connectAddr, connectAddr, sizeof(connectAddr));
-
-    this->port = portNum;
-
-    this->sockfd = -1;
+    size_t add_len = strlen(connectAddr) + 1;
+    this->connectAddr = (char *)malloc(add_len);
+    memcpy(this->connectAddr, connectAddr, add_len);
 }
 
 Client::~Client() {
-    close(this->sockfd);
-    delete this->connectAddr;
+    free(this->connectAddr);
 }
 
 void Client::Connect() {
-    // for constructing a ClientException, if need be
+    // for constructing an exception, if need be
     const char *error_msg;
-    // standard UNIX socket stuff, like in beej
+    // standard UNIX socket stuff
     struct addrinfo hints, *servinfo, *p;
     int rv;
     memset(&hints, 0, sizeof hints);
@@ -58,18 +53,16 @@ void Client::Connect() {
         goto error;
     }
 
-    goto done;
-
-error:
-    close(sockfd);
-    sockfd = -1; //fallthrough -->
-early_error:
-    freeaddrinfo(servinfo);
-    throw ClientException(error_msg);
-done:
     memmove(&this->ai_addr, p->ai_addr, p->ai_addrlen);
     freeaddrinfo(servinfo);
     return;
+
+error:
+    close(sockfd);
+    sockfd = -1; //fallthrough to early_error
+early_error:
+    freeaddrinfo(servinfo);
+    throw std::runtime_error(error_msg);
 }
 
 int Client::Send(const char *data, int len) {
@@ -77,13 +70,18 @@ int Client::Send(const char *data, int len) {
     if (this->proto == Protocol::UDP) {
         if ((numbytes = sendto(this->sockfd, data, len, 0,
              &this->ai_addr, sizeof this->ai_addr)) == -1) {
-            throw ClientException("UDP send failed - ", true);
-        }
+            goto error;
+       }
     }
     else {
         if ((numbytes = send(this->sockfd, data, len, 0)) == -1)
-           throw ClientException("Connected send failed - ", true); 
+            goto error;
     }
 
     return numbytes;
+
+error:
+    std::string err_msg ("send failed - ");
+    err_msg += strerror(errno);
+    throw std::runtime_error(err_msg.c_str());
 }

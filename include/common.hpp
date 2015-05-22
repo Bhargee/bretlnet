@@ -1,8 +1,9 @@
 #ifndef BRETLNET_COMMON_H
 #define BRETLNET_COMMON_H
 
-#include <iostream>
+//#include <iostream>
 #include <stdlib.h>
+// socket stuff
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
@@ -10,37 +11,25 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-
 #include <arpa/inet.h>
-
-#include <exception>
-
+// for nice c++11 exceptions
 #include <functional>
 
-enum Protocol {TCP, UDP, CONN_UDP};
-
-class NetException : public std::exception {
-    public:
-        NetException(const char *msg, bool sysMsg=false) throw();
-        ~NetException() throw();
-        const char *what() const throw();
-    private:
-        std::string userMessage;
+class BretlNetService {
+    protected:
+        BretlNetService(int portNum);
+        ~BretlNetService();
+        int sockfd;
+        int port;
 };
 
-NetException::NetException(const char *message, bool sysMsg)
-    throw() : userMessage(message) {
-        if (sysMsg) {
-            userMessage.append(": ");
-            userMessage.append(strerror(errno));
-        }
-    }
-
-const char *NetException::what() const throw() {
-    return userMessage.c_str();
+inline BretlNetService::BretlNetService(int portNum) {
+    this->port = portNum;
+    this->sockfd = -1;
 }
 
-typedef NetException ClientException;
-typedef NetException ServerException ;
+inline BretlNetService::~BretlNetService() {
+    close(this->sockfd);
+}
 
 #endif
