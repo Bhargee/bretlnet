@@ -1,12 +1,12 @@
 SHELL = /bin/sh
-CC = g++
+CC = clang++
 CPPFLAGS = -std=c++11 -Iinclude  -pedantic -Wall -Wextra -O3
 TARGET = libbretlnet.a
 SOURCES = $(shell echo src/*.cpp)
 HEADERS = $(shell echo include/*.h)
 OBJECTS = $(SOURCES:.cpp=.o)
 
-all: $(TARGET)
+lib: $(TARGET)
 
 $(TARGET): $(OBJECTS)
 	-ar rcs $(TARGET) $(OBJECTS)
@@ -20,4 +20,4 @@ clean:
 distclean: clean
 	-rm -f $(TARGET)
 
-.PHONY: clean distclean all
+.PHONY: clean distclean lib
