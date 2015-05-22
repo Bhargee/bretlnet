@@ -9,19 +9,18 @@ Server::~Server() {
 }
 
 void Server::Serve(void (*f)(char *)) {
-    // TODO add support for *UDP
+    // TODO add support for TCP
     // TODO make async
-    int new_fd; 
     struct addrinfo hints, *servinfo, *p;
-    struct sockaddr_storage their_addr; // connector's address information
-    socklen_t sin_size;
-    int yes=1;
     int rv;
+    int numbytes;
+    struct sockaddr_storage their_addr;
+    socklen_t addr_len;
 
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
+    hints.ai_family = AF_UNSPEC; // set to AF_INET to force IPv4
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = AI_PASSIVE; // use my IP
 
     std::string port_str = std::to_string(this->port);
     if ((rv = getaddrinfo(NULL, port_str.c_str(), &hints, &servinfo)) != 0) {
@@ -29,53 +28,39 @@ void Server::Serve(void (*f)(char *)) {
         //return 1;
     }
 
+    // loop through all the results and bind to the first we can
     for(p = servinfo; p != NULL; p = p->ai_next) {
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                 p->ai_protocol)) == -1) {
-            perror("server: socket");
+            perror("listener: socket");
             continue;
-        }
-
-        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-                sizeof(int)) == -1) {
-            perror("setsockopt");
-            exit(1);
         }
 
         if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
             close(sockfd);
-            perror("server: bind");
+            perror("listener: bind");
             continue;
         }
 
         break;
     }
 
-    if (p == NULL)  {
-        fprintf(stderr, "server: failed to bind\n");
+    if (p == NULL) {
+        fprintf(stderr, "listener: failed to bind socket\n");
         //return 2;
     }
 
     freeaddrinfo(servinfo);
 
-    if (listen(sockfd, 10) == -1) {
-        perror("listen");
-        exit(1);
-    }
-
     char buf[this->bufsize];
 
+    addr_len = sizeof their_addr;
     while(1) {
-        sin_size = sizeof their_addr;
-        new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-        if (new_fd == -1) {
-            perror("accept");
-            continue;
-        }
-        if (recv(new_fd, buf, this->bufsize, 0) == -1) {
-            perror("recv");
+        if ((numbytes = recvfrom(this->sockfd, buf, this->bufsize , 0,
+            (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+            perror("recvfrom");
             exit(1);
-        }
+        } 
         f(buf);
     }
 }
