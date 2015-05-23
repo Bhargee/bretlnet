@@ -1,6 +1,7 @@
 #include "client.hpp"
 
-Client::Client(Protocol p, const char *connectAddr, int portNum) : BretlNetService(portNum) {
+Client::Client(Protocol p, const char *connectAddr, int portNum) 
+    : BretlNetService(portNum) {
     this->proto = p;
     size_t add_len = strlen(connectAddr) + 1;
     this->connectAddr = (char *)malloc(add_len);

@@ -14,8 +14,7 @@ class Server : private BretlNetService {
     private:
         Protocol proto;
         ThreadPool *workerPool;
-        std::function<void(char *)> task;
-        std::thread listenThread;
+        std::thread *listenThread;
         // in bytes
         size_t dataLen;
         // do socket init (socket, bind, listen)

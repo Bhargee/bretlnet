@@ -6,11 +6,12 @@ Server::Server(Protocol p, int portNum, int numThreads,
     this->proto = p;
     this->workerPool = new ThreadPool(numThreads, onPacket);
     this->dataLen = dataLen;
-    this->task = onPacket;
 }
 
 Server::~Server() {
    delete this->workerPool; 
+   this->listenThread->join();
+   delete this->listenThread;
 }
 
 // might throw exception
@@ -71,12 +72,16 @@ void Server::Serve() {
         Init();
     }
 
-    char buf[this->dataLen];
-    struct sockaddr_storage their_addr;
-    socklen_t addr_len = sizeof their_addr;
+    if (this->proto == UDP) {
+        this->listenThread = new std::thread([this] {
+            char buf[this->dataLen];
+            struct sockaddr_storage their_addr;
+            socklen_t addr_len = sizeof their_addr;
 
-    while (recvfrom(this->sockfd, buf, this->dataLen, 0,
-                (struct sockaddr *) &their_addr, &addr_len) != -1) {
-        this->workerPool->Push(buf, this->dataLen);
+            while (recvfrom(this->sockfd, buf, this->dataLen, 0,
+                        (struct sockaddr *) &their_addr, &addr_len) != -1) {
+                this->workerPool->Push(buf, this->dataLen);
+            }
+        });
     }
 }
