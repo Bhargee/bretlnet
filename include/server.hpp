@@ -2,25 +2,26 @@
 #define BRETLNET_SERVER_H
 
 #include "common.hpp"
-//#include "threadpool.hpp"
+#include "threadpool.hpp"
 
 class Server : private BretlNetService {
     public:
         enum Protocol {TCP, UDP};
-        Server(Protocol p, int portNum, int numThreads);
+        Server(Protocol p, int portNum, int numThreads, 
+                std::function<void(char *)> onPacket, size_t dataLen);
         ~Server();
-        void Serve(void (*f)(char *));
+        void Serve();
     private:
         Protocol proto;
-        int nThreads;
-//        ThreadPool workerPool;
+        ThreadPool *workerPool;
+        std::function<void(char *)> task;
+        std::thread listenThread;
+        // in bytes
+        size_t dataLen;
         // do socket init (socket, bind, listen)
         void InitUDP();
         void InitTCP();
         void Init();
-        // pthread listener?
 };
-
-
 
 #endif

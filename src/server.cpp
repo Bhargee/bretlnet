@@ -1,12 +1,16 @@
 #include "server.hpp"
 
-Server::Server(Protocol p, int portNum, int numThreads) 
+Server::Server(Protocol p, int portNum, int numThreads, 
+        const std::function<void(char *)> onPacket, size_t dataLen)
     : BretlNetService(portNum) {
     this->proto = p;
-    this->nThreads = numThreads;
+    this->workerPool = new ThreadPool(numThreads, onPacket);
+    this->dataLen = dataLen;
+    this->task = onPacket;
 }
 
 Server::~Server() {
+   delete this->workerPool; 
 }
 
 // might throw exception
@@ -56,8 +60,23 @@ void Server::InitUDP() {
     return;
 
 error:
-    throw std::runtime_error(error_msg);
+    std::string err (strerror(errno));
+    err += error_msg;
+    throw std::runtime_error(err.c_str());
+
 }
 
-void Server::Serve(void (*f)(char *)) {
+void Server::Serve() {
+    if (this->sockfd == -1) {
+        Init();
+    }
+
+    char buf[this->dataLen];
+    struct sockaddr_storage their_addr;
+    socklen_t addr_len = sizeof their_addr;
+
+    while (recvfrom(this->sockfd, buf, this->dataLen, 0,
+                (struct sockaddr *) &their_addr, &addr_len) != -1) {
+        this->workerPool->Push(buf, this->dataLen);
+    }
 }
