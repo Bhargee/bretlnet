@@ -15,13 +15,15 @@ class Server : private BretlNetService {
     private:
         Protocol proto;
         ThreadPool *workerPool;
-        // used for bot TCP and UDP, may change this to a vector of threads
-        // because if # of worker threads >> # of listener threads
-        // lots of worker thread time will be wasted blocking, more dropped 
-        // packets/reduced throughput
+        /* used for both TCP and UDP, may change this to a vector of threads
+           because if # of worker threads >> # of listener threads
+           lots of worker thread time will be wasted blocking, more dropped 
+           packets/reduced throughput */
         std::thread *listenThread;
         // in bytes
         size_t dataLen;
+
+        std::function<void(char *)> onTCP;
 
         // do socket init (socket, bind, listen calls)
         void Init();

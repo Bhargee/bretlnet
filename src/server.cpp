@@ -8,6 +8,8 @@ Server::Server(Protocol p, int portNum, int numThreads, size_t dataLen,
     if (p == UDP)
         this->workerPool = new ThreadPool(numThreads, onPacket);
     this->dataLen = dataLen;
+    if (p == TCP)
+        this->onTCP = onPacket;
 }
 
 Server::~Server() {
@@ -103,5 +105,26 @@ void Server::ServeUDP() {
 }
 
 void Server::ServeTCP() {
-    
+   this->listenThread = new std::thread(
+       [this] {
+           struct sockaddr_storage their_addr;
+           socklen_t addr_len = sizeof their_addr;
+           int clientfd;
+           std::function <void()> task;
+           
+           for (;;) {
+               clientfd = accept(this->sockfd, (struct sockaddr *) &their_addr,
+                       &addr_len);
+               if (clientfd == -1)
+                   continue;
+               
+               task = [this, clientfd] {
+                   char buf[this->dataLen];
+                   while (recv(clientfd, buf, this->dataLen, 0) != -1) {
+                       this->onTCP(buf);
+                   }
+               };
+               this->workerPool->Push(task);
+           }
+       });
 }
