@@ -7,9 +7,10 @@
 class Server : private BretlNetService {
     public:
         enum Protocol {TCP, UDP};
-        Server(Protocol p, int portNum, int numThreads, 
-                std::function<void(char *)> onPacket, size_t dataLen);
+        Server(Protocol p, int portNum, int numThreads, size_t dataLen, 
+                std::function<void(char *)> onPacket);
         ~Server();
+
         void Serve();
     private:
         Protocol proto;
@@ -17,9 +18,8 @@ class Server : private BretlNetService {
         std::thread *listenThread;
         // in bytes
         size_t dataLen;
-        // do socket init (socket, bind, listen)
-        void InitUDP();
-        void InitTCP();
+
+        // do socket init (socket, bind, listen calls)
         void Init();
 };
 
