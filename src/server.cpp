@@ -5,17 +5,18 @@ Server::Server(Protocol p, int portNum, int numThreads, size_t dataLen,
         const std::function<void(char *)> onPacket)
     : BretlNetService(portNum) {
     this->proto = p;
-    this->workerPool = new ThreadPool(numThreads, onPacket);
+    if (p == UDP)
+        this->workerPool = new ThreadPool(numThreads, onPacket);
     this->dataLen = dataLen;
 }
 
 Server::~Server() {
-   delete this->workerPool; 
-   this->listenThread->join();
-   delete this->listenThread;
+    if (this->proto == UDP)
+        delete this->workerPool; 
+    this->listenThread->join();
+    delete this->listenThread;
 }
 
-// might throw exception
 void Server::Init() {
     struct addrinfo hints, *servinfo, *p;
     int rv;
@@ -81,15 +82,26 @@ void Server::Serve() {
     }
 
     if (this->proto == UDP) {
-        this->listenThread = new std::thread([this] {
-            char buf[this->dataLen];
-            struct sockaddr_storage their_addr;
-            socklen_t addr_len = sizeof their_addr;
-
-            while (recvfrom(this->sockfd, buf, this->dataLen, 0,
-                        (struct sockaddr *) &their_addr, &addr_len) != -1) {
-                this->workerPool->Push(buf, this->dataLen);
-            }
-        });
+        ServeUDP();
     }
+    else {
+        ServeTCP();
+    }
+}
+
+void Server::ServeUDP() {
+    this->listenThread = new std::thread([this] {
+        char buf[this->dataLen];
+        struct sockaddr_storage their_addr;
+        socklen_t addr_len = sizeof their_addr;
+
+        while (recvfrom(this->sockfd, buf, this->dataLen, 0,
+                    (struct sockaddr *) &their_addr, &addr_len) != -1) {
+            this->workerPool->Push(buf, this->dataLen);
+        }
+    });
+}
+
+void Server::ServeTCP() {
+    
 }
