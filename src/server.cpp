@@ -15,8 +15,7 @@ Server::Server(Protocol p, int portNum, int numThreads, size_t dataLen,
 }
 
 Server::~Server() {
-    if (this->proto == UDP)
-        delete this->workerPool; 
+    delete this->workerPool; 
     this->listenThread->join();
     delete this->listenThread;
 }
