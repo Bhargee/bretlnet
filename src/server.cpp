@@ -1,4 +1,5 @@
 #include "server.hpp"
+#include <iostream>
 #define BACKLOG 20
 
 Server::Server(Protocol p, int portNum, int numThreads, size_t dataLen,
@@ -87,7 +88,9 @@ void Server::Serve() {
         ServeUDP();
     }
     else {
+        std::cout << "before serveTCP" << std::endl;
         ServeTCP();
+        std::cout << "after serveTCP" << std::endl;
     }
 }
 
@@ -105,25 +108,36 @@ void Server::ServeUDP() {
 }
 
 void Server::ServeTCP() {
+    std::cout << "in serveTCP" << std::endl;
    this->listenThread = new std::thread(
        [this] {
+           std::cout << "in listenThread lambda" << std::endl;
            struct sockaddr_storage their_addr;
            socklen_t addr_len = sizeof their_addr;
            int clientfd;
            std::function <void()> task;
            
            for (;;) {
+               // block here
                clientfd = accept(this->sockfd, (struct sockaddr *) &their_addr,
                        &addr_len);
+               std::cout << "accepted connection" << std::endl;
                if (clientfd == -1)
                    continue;
                
                task = [this, clientfd] {
+                   std::cout << "in task lambda" << std::endl;
                    char buf[this->dataLen];
-                   while (recv(clientfd, buf, this->dataLen, 0) != -1) {
+                   int ret;
+                   for (;;) {
+                       ret = recv(clientfd, buf, this->dataLen, 0);
+                       if (ret <= 0)
+                           break;
                        this->onTCP(buf);
                    }
+                   std::cout << "exiting task lambda" << std::endl;
                };
+               std::cout << "pushing to workerPool" << std::endl;
                this->workerPool->Push(task);
            }
        });
