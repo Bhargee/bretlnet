@@ -1,5 +1,4 @@
 #include "server.hpp"
-#include <iostream>
 #define BACKLOG 20
 
 Server::Server(Protocol p, int portNum, int numThreads, size_t dataLen,
@@ -8,9 +7,11 @@ Server::Server(Protocol p, int portNum, int numThreads, size_t dataLen,
     this->proto = p;
     if (p == UDP)
         this->workerPool = new ThreadPool(numThreads, onPacket);
-    this->dataLen = dataLen;
-    if (p == TCP)
+    else {
+        this->workerPool = new ThreadPool(numThreads);
         this->onTCP = onPacket;
+    }
+    this->dataLen = dataLen;
 }
 
 Server::~Server() {
@@ -88,9 +89,7 @@ void Server::Serve() {
         ServeUDP();
     }
     else {
-        std::cout << "before serveTCP" << std::endl;
         ServeTCP();
-        std::cout << "after serveTCP" << std::endl;
     }
 }
 
@@ -108,10 +107,8 @@ void Server::ServeUDP() {
 }
 
 void Server::ServeTCP() {
-    std::cout << "in serveTCP" << std::endl;
    this->listenThread = new std::thread(
        [this] {
-           std::cout << "in listenThread lambda" << std::endl;
            struct sockaddr_storage their_addr;
            socklen_t addr_len = sizeof their_addr;
            int clientfd;
@@ -121,12 +118,10 @@ void Server::ServeTCP() {
                // block here
                clientfd = accept(this->sockfd, (struct sockaddr *) &their_addr,
                        &addr_len);
-               std::cout << "accepted connection" << std::endl;
                if (clientfd == -1)
                    continue;
                
                task = [this, clientfd] {
-                   std::cout << "in task lambda" << std::endl;
                    char buf[this->dataLen];
                    int ret;
                    for (;;) {
@@ -135,9 +130,7 @@ void Server::ServeTCP() {
                            break;
                        this->onTCP(buf);
                    }
-                   std::cout << "exiting task lambda" << std::endl;
                };
-               std::cout << "pushing to workerPool" << std::endl;
                this->workerPool->Push(task);
            }
        });

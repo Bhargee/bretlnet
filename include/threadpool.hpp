@@ -10,6 +10,7 @@
 #include <future>
 #include <mutex>
 #include <queue>
+#include <iostream>
 
 class ThreadPool {
     public:
@@ -78,13 +79,10 @@ inline void ThreadPool::Push(char *data, size_t len) {
 }
 
 inline void ThreadPool::Push(std::function <void()> poolTask) {
-    if (workers.size() == this->nThreads)
-        return; // maybe throw exception here instead of failing silently?
-    workers.emplace_back([poolTask]{ for(;;) {poolTask();}});
+    workers.emplace_back([poolTask](){poolTask();});
 }
 
-inline ThreadPool::~ThreadPool()
-{
+inline ThreadPool::~ThreadPool() {
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         stop = true;
