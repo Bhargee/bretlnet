@@ -79,6 +79,9 @@ inline void ThreadPool::Push(char *data, size_t len) {
 }
 
 inline void ThreadPool::Push(std::function <void()> poolTask) {
+    if (stop) {
+        throw std::runtime_error("push on stopped thread pool");
+    }
     workers.emplace_back([poolTask](){poolTask();});
 }
 
