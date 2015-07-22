@@ -1,6 +1,6 @@
 SHELL = /bin/sh
 CC = clang++
-CPPFLAGS = -std=c++11 -Iinclude  -pedantic -Wall -Wextra -O3
+CPPFLAGS = -std=c++11 -Iinclude  -lpthread -pedantic -Wall -Wextra -O3
 TARGET = libbretlnet.a
 SOURCES = $(shell echo src/*.cpp)
 HEADERS = $(shell echo include/*.h)

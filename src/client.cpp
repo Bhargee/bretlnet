@@ -3,13 +3,13 @@
 Client::Client(Protocol p, const char *connectAddr, int portNum) 
     : BretlNetService(portNum) {
     this->proto = p;
-    size_t add_len = strlen(connectAddr) + 1;
-    this->connectAddr = (char *)malloc(add_len);
-    memcpy(this->connectAddr, connectAddr, add_len);
+    this->connectAddr = std::string(connectAddr);
 }
 
 Client::~Client() {
-    free(this->connectAddr);
+    for (auto &thread : this->activeThreads) {
+        thread.join();
+    }
 }
 
 void Client::Connect() {
@@ -24,7 +24,7 @@ void Client::Connect() {
 
     // populate struct servinfo for use in later calls
     std::string port_str = std::to_string(this->port);
-    if ((rv = getaddrinfo(this->connectAddr, port_str.c_str(), &hints, &servinfo)) != 0) {
+    if ((rv = getaddrinfo(this->connectAddr.c_str(), port_str.c_str(), &hints, &servinfo)) != 0) {
         error_msg = gai_strerror(rv);
         goto early_error;
     }
@@ -66,23 +66,31 @@ early_error:
     throw std::runtime_error(error_msg);
 }
 
-int Client::Send(const char *data, int len) {
-    int numbytes;
-    if (this->proto == Protocol::UDP) {
-        if ((numbytes = sendto(this->sockfd, data, len, 0,
-             &this->ai_addr, sizeof this->ai_addr)) == -1) {
-            goto error;
-       }
-    }
-    else {
-        if ((numbytes = send(this->sockfd, data, len, 0)) == -1)
-            goto error;
-    }
+void Client::Send(const std::vector<char> &data) {
+    this->Send(data.data(), data.size());
+}
 
-    return numbytes;
+void Client::Send(const char *data, int len) {
+    this->activeThreads.emplace_back([this, data, len] {
+        int numbytes;
+        if (this->proto == Protocol::UDP) {
+            if ((numbytes = sendto(this->sockfd, data, len, 0,
+                 &this->ai_addr, sizeof this->ai_addr)) != len) {
+                goto error;
+           }
+        }
+        else {
+            if ((numbytes = send(this->sockfd, data, len, 0)) == -1)
+                goto error;
+        }
 
-error:
-    std::string err_msg ("send failed - ");
-    err_msg += strerror(errno);
-    throw std::runtime_error(err_msg.c_str());
+        return;
+    error:
+        std::string err_msg ("send failed - ");
+        err_msg += strerror(errno);
+        err_msg += "\nsent ";
+        err_msg += std::to_string(numbytes);
+        err_msg += " bytes";
+        throw std::runtime_error(err_msg.c_str());
+    });
 }
