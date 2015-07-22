@@ -2,14 +2,14 @@
 #define BACKLOG 20
 
 Server::Server(Protocol p, int portNum, int numThreads, size_t dataLen,
-        const std::function<void(char *)> onPacket)
+        const std::function<void(std::vector<char>)> onPacket)
     : BretlNetService(portNum) {
     this->proto = p;
     if (p == UDP)
-        this->workerPool = new ThreadPool(numThreads, onPacket);
+        this->workerPool = new ThreadPool(numThreads, std::move(onPacket));
     else {
         this->workerPool = new ThreadPool(numThreads);
-        this->onTCP = onPacket;
+        this->onTCP = std::move(onPacket);
     }
     this->dataLen = dataLen;
 }
@@ -94,13 +94,13 @@ void Server::Serve() {
 
 void Server::ServeUDP() {
     this->listenThread = new std::thread([this] {
-        char buf[this->dataLen];
+        std::vector<char> buf(this->dataLen);
         struct sockaddr_storage their_addr;
         socklen_t addr_len = sizeof their_addr;
 
-        while (recvfrom(this->sockfd, buf, this->dataLen, 0,
+        while (recvfrom(this->sockfd, buf.data(), this->dataLen, 0,
                     (struct sockaddr *) &their_addr, &addr_len) != -1) {
-            this->workerPool->Push(buf, this->dataLen);
+            this->workerPool->Push(buf);
         }
     });
 }
@@ -121,16 +121,16 @@ void Server::ServeTCP() {
                    continue;
                
                task = [this, clientfd] {
-                   char buf[this->dataLen];
+               std::vector <char> buf(this->dataLen);
                    int ret;
                    for (;;) {
-                       ret = recv(clientfd, buf, this->dataLen, 0);
+                       ret = recv(clientfd, buf.data(), this->dataLen, 0);
                        if (ret <= 0)
                            break;
                        this->onTCP(buf);
                    }
                };
-               this->workerPool->Push(task);
+               this->workerPool->Push(std::move(task));
            }
        });
 }

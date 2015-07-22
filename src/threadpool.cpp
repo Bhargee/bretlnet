@@ -1,9 +1,9 @@
 #include <cstring>
 #include "threadpool.hpp"
 
-ThreadPool::ThreadPool(size_t n, const std::function <void(char *)> onPacket) {
+ThreadPool::ThreadPool(size_t n, const std::function <void(std::vector<char>)> onPacket) {
     this->nThreads = n;
-    this->task = onPacket;
+    this->task = std::move(onPacket);
     this->stop = false;
     for (size_t i = 0; i < n; ++i) 
         workers.emplace_back(
@@ -11,7 +11,7 @@ ThreadPool::ThreadPool(size_t n, const std::function <void(char *)> onPacket) {
             {
                 for (;;)
                 {
-                    char *data;
+                std::vector<char> data;
                     {
                         std::unique_lock<std::mutex> lock (this->queue_mutex);
                         this->condition.wait(lock,
@@ -22,7 +22,6 @@ ThreadPool::ThreadPool(size_t n, const std::function <void(char *)> onPacket) {
                         this->dataQueue.pop();
                     }
                     this->task(data);
-                    free(data);
                 }
             }
         );
@@ -33,24 +32,26 @@ ThreadPool::ThreadPool(size_t n) {
     this->stop = false;
 }
 
-void ThreadPool::Push(char *data, size_t len) {
+void ThreadPool::Push(std::vector<char> data) {
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         if (stop) {
             throw std::runtime_error("push on stopped thread pool");
         }
-        char *copied = (char *)malloc(len);
-        std::memcpy(copied, data, len);
-        dataQueue.emplace(copied);
+        dataQueue.emplace(std::move(data));
     }
     condition.notify_one();
 }
 
 void ThreadPool::Push(std::function <void()> poolTask) {
-    if (stop) {
-        throw std::runtime_error("push on stopped thread pool");
+    {
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        if (stop) {
+            throw std::runtime_error("push on stopped thread pool");
+        }
+        workers.emplace_back([poolTask](){poolTask();});
     }
-    workers.emplace_back([poolTask](){poolTask();});
+    condition.notify_one();
 }
 
 ThreadPool::~ThreadPool() {
@@ -62,4 +63,3 @@ ThreadPool::~ThreadPool() {
     for(std::thread &worker: workers)
         worker.join();
 }
-

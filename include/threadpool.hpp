@@ -14,16 +14,16 @@
 
 class ThreadPool {
     public:
-        ThreadPool(size_t nThreads, const std::function <void(char*)> onPacket);
+        ThreadPool(size_t nThreads, const std::function <void(std::vector<char>)> onPacket);
         ThreadPool(size_t nThreads);
         ~ThreadPool();
-        void Push(char *data, size_t len);
+        void Push(std::vector<char> buf);
         void Push(std::function <void()> poolTask);
     private:
         size_t nThreads;
 
-        std::function <void(char*)> task;
-        std::queue<char *> dataQueue;
+        std::function <void(std::vector<char>)> task;
+        std::queue<std::vector<char>> dataQueue;
 
         std::vector< std::thread > workers;
          // synchronization
