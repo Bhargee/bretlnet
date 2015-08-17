@@ -8,7 +8,8 @@ versions:
 
 The former is completely from scratch and minimal. Simply include server.hpp or
 client.hpp, depending on your needs. Usage is extremely simple - to figure it
-out, read the comments and look under `examples`
+out, read the comments and look under `examples`, which contains examples that
+double as unit tests
 
 The latter is a work in progress, started because I wanted to - 
 
