@@ -1,18 +1,54 @@
-#include "client.hpp"
+#ifndef BRETLNET_CLIENT_H
+#define BRETLNET_CLIENT_H
 
-Client::Client(Protocol p, const char *connectAddr, int portNum) 
-    : BretlNetService(portNum) {
+#include <thread>
+#include <vector>
+#include <stdlib.h>
+// socket stuff
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
+
+class Client {
+    public:
+        // API
+        enum Protocol {TCP, CONN_UDP, UDP};
+        Client(Protocol p, const char *connectAddr, int portNum);
+        ~Client();
+        void Connect();
+        void Send(const std::vector<char> &data);
+        void Send(const char *data, int len);
+    private:
+        std::string connectAddr;
+        struct sockaddr ai_addr; // for UDP clients
+        Protocol proto;
+        int port, sockfd;
+        // implementation
+        std::vector<std::thread> activeThreads; // to simulate asynchronicity
+        void signalSendErr(int &numbytes);
+};
+
+inline Client::Client(Protocol p, const char *connectAddr, int portNum) {
+    this->port = portNum;
+    this->sockfd = -1;
     this->proto = p;
     this->connectAddr = std::string(connectAddr);
 }
 
-Client::~Client() {
+inline Client::~Client() {
     for (auto &thread : this->activeThreads) {
         thread.join();
     }
+    close(this->sockfd);
 }
 
-void Client::Connect() {
+inline void Client::Connect() {
     // for constructing an exception, if need be
     const char *error_msg;
     // standard UNIX socket stuff
@@ -65,11 +101,11 @@ early_error:
     throw std::runtime_error(error_msg);
 }
 
-void Client::Send(const std::vector<char> &data) {
+inline void Client::Send(const std::vector<char> &data) {
     this->Send(data.data(), data.size());
 }
 
-void Client::Send(const char *data, int len) {
+inline void Client::Send(const char *data, int len) {
     this->activeThreads.emplace_back([this, data, len] {
         int numbytes;
         if (this->proto == Protocol::UDP) {
@@ -87,7 +123,7 @@ void Client::Send(const char *data, int len) {
     });
 }
 
-void Client::signalSendErr(int &numbytes) {
+inline void Client::signalSendErr(int &numbytes) {
     std::string err_msg ("send failed - ");
     err_msg += strerror(errno);
     err_msg += "\nsent ";
@@ -95,3 +131,5 @@ void Client::signalSendErr(int &numbytes) {
     err_msg += " bytes";
     throw std::runtime_error(err_msg.c_str());
 }
+
+#endif
