@@ -79,30 +79,30 @@ error:
 
 }
 
-void Server::Serve() {
+void Server::Serve(bool async) {
     if (this->sockfd == -1) {
         Init();
     }
 
-    if (this->proto == UDP) {
-        ServeUDP();
+    if (async) {
+        this->listenThread = new std::thread([this] {
+            (this->proto == UDP) ? this->ServeUDP() : this->ServeTCP();
+        });
     }
     else {
-        ServeTCP();
+        (this->proto == UDP) ? this->ServeUDP() : this->ServeTCP();
     }
 }
 
 void Server::ServeUDP() {
-    this->listenThread = new std::thread([this] {
-        std::vector<char> buf(this->dataLen);
-        struct sockaddr_storage their_addr;
-        socklen_t addr_len = sizeof their_addr;
+    std::vector<char> buf(this->dataLen);
+    struct sockaddr_storage their_addr;
+    socklen_t addr_len = sizeof their_addr;
 
-        while (recvfrom(this->sockfd, buf.data(), this->dataLen, 0,
-                    (struct sockaddr *) &their_addr, &addr_len) != -1) {
-            this->workerPool->Push(buf);
-        }
-    });
+    while (recvfrom(this->sockfd, buf.data(), this->dataLen, 0,
+                (struct sockaddr *) &their_addr, &addr_len) != -1) {
+        this->workerPool->Push(buf);
+    }
 }
 
 void Server::ServeTCP() {

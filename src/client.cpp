@@ -30,7 +30,6 @@ void Client::Connect() {
     }
 
     // traverse servinfo linked list, use first descriptor that works
-    // TODO find out what this means
     for(p = servinfo; p != NULL; p = p->ai_next) {
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                 p->ai_protocol)) == -1) {
@@ -76,21 +75,23 @@ void Client::Send(const char *data, int len) {
         if (this->proto == Protocol::UDP) {
             if ((numbytes = sendto(this->sockfd, data, len, 0,
                  &this->ai_addr, sizeof this->ai_addr)) != len) {
-                goto error;
+                this->signalSendErr(numbytes);
            }
         }
         else {
             if ((numbytes = send(this->sockfd, data, len, 0)) == -1)
-                goto error;
+               this->signalSendErr(numbytes);
         }
 
         return;
-    error:
-        std::string err_msg ("send failed - ");
-        err_msg += strerror(errno);
-        err_msg += "\nsent ";
-        err_msg += std::to_string(numbytes);
-        err_msg += " bytes";
-        throw std::runtime_error(err_msg.c_str());
     });
+}
+
+void Client::signalSendErr(int &numbytes) {
+    std::string err_msg ("send failed - ");
+    err_msg += strerror(errno);
+    err_msg += "\nsent ";
+    err_msg += std::to_string(numbytes);
+    err_msg += " bytes";
+    throw std::runtime_error(err_msg.c_str());
 }

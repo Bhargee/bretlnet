@@ -20,6 +20,7 @@ class Client : private BretlNetService {
         Protocol proto;
         // implementation
         std::vector<std::thread> activeThreads; // to simulate asynchronicity
+        void signalSendErr(int &numbytes);
 };
 
 #endif
