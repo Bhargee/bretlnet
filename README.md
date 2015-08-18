@@ -16,3 +16,6 @@ The latter is a work in progress, started because I wanted to -
 * learn boost
 * improve on the first effort vis-a-vis code quality and 'real' asynchronicity
   (I use threads in (1) to achieve the same effects as using epoll et all)
+
+**NOTE** You can modify the makefile in `examples` to use g++ instead of
+clang++ by changing `CC=clang++` to `CC+g++`

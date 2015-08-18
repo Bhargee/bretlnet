@@ -159,7 +159,7 @@ inline void Server::Serve(bool async) {
     }
 
     if (async) {
-        this->listenThread = new std::thread([this] {
+        this->listenThread = new std::thread([this]() {
             (this->proto == UDP) ? this->ServeUDP() : this->ServeTCP();
         });
     }
