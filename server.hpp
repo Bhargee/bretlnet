@@ -1,18 +1,8 @@
 #ifndef BRETLNET_SERVER_H
 #define BRETLNET_SERVER_H
 
-#include <functional>
-#include <thread>
-#include <atomic>
-#include <vector>
-#include <memory>
-#include <exception>
-#include <future>
-#include <mutex>
-#include <queue>
-#include <iostream>
-#include <cstring>
 #include <stdlib.h>
+#include <functional>
 
 extern "C" {
     #include <libmill.h>
@@ -26,53 +16,69 @@ class Server {
         Server(Protocol p, unsigned short portNum, size_t dataLen, 
                 void (*callback) (char *));
         ~Server();
-        void Serve(bool blocking);
+        void Serve();
 
     private:
         unsigned short port;
         Protocol proto;
         void (*callback) (char *);
         size_t packetSize;
-
-        std::thread *asyncServe = NULL;
-        std::function<void()> handleUDP = 
-            [this]() {
-                ipaddr addr = iplocal(NULL, this->port, 0);
-                udpsock s = udplisten(addr);
-                char buf[256];
-                ipaddr a;
-                for(;;) {
-                    size_t sz = udprecv(s, &a, buf, this->packetSize, -1);
-                    this->callback(buf);
-                }
-                udpclose(s);
-            };
+        
+        void serveUDP(ipaddr &localAddr);
+        void serveTCP(ipaddr &localAddr);
 };
 
 /* Server Impl */
 inline Server::Server(Protocol p, unsigned short portNum, size_t dataLen, void (*cb) (char *)) :
-    port(portNum),
-    proto(p),
-    callback(cb),
-    packetSize(dataLen)
-{
+    port(portNum), proto(p), callback(cb), packetSize(dataLen) {
 }
 
-inline Server::~Server() {
-    if (this->asyncServe) {
-        asyncServe->join();
-        delete asyncServe;
-    }
+inline Server::~Server() {}
+
+inline void Server::Serve() {
+    ipaddr localAddr = iplocal(NULL, this->port, IPADDR_PREF_IPV4);
+
+    (this->proto == UDP) ? serveUDP(localAddr) : serveTCP(localAddr);
+
 }
 
-inline void Server::Serve(bool blocking) {
-    if (blocking) {
-        handleUDP();
-    } 
-    else {
-        asyncServe = new std::thread(handleUDP);
+void Server::serveUDP (ipaddr &localAddr) {
+    udpsock serverSock = udplisten(localAddr);
+    if (!serverSock) {
+        perror("Could not open UDP socket");
+        goto cleanup; // TODO think about throwing an exception here?
     }
 
+    char buf[this->packetSize];
+    ipaddr remote;
+
+    for(;;) {
+        udprecv(serverSock, &remote, buf, this->packetSize, -1);
+        if (errno) {
+            perror("Received corrupt packet");
+            goto cleanup;
+        }
+        go(this->callback(buf));
+    }
+cleanup:
+    udpclose(serverSock);
+}
+
+void Server::serveTCP (ipaddr &localAddr) {
+    tcpsock serverSock = tcplisten(localAddr, BACKLOG);
+    if (!serverSock) {
+        perror("Could not open TCP socket");
+        goto cleanup;
+    }
+
+    for(;;) {
+        tcpsock as = tcpaccept(serverSock, -1);
+        if (!as)
+            continue;
+        //go(this->); // TODO
+    }
+cleanup:
+   tcpclose(serverSock); 
 }
 
 #endif

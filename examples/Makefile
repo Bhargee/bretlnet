@@ -3,7 +3,7 @@
 # if none is provided it executes the clean target
 SHELL = /bin/sh
 CC = g++
-CPPFLAGS =  -I../  -std=c++11 -lmill -pedantic -Wall -Wextra -O3
+CPPFLAGS = -I../ -std=c++11 -lmill -pedantic -Wall -Wextra -O3
 DEBUG = -g
 SOURCES = $(shell echo *.cpp)
 OBJECTS = $(SOURCES:.cpp=)
