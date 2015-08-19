@@ -3,14 +3,13 @@
 # if none is provided it executes the clean target
 SHELL = /bin/sh
 CC = g++
-CPPFLAGS = -pthread -std=c++11 -I../  -pedantic -Wall -Wextra #-O3
+CPPFLAGS =  -I../  -std=c++11 -lmill -pedantic -Wall -Wextra -O3
 DEBUG = -g
 SOURCES = $(shell echo *.cpp)
 OBJECTS = $(SOURCES:.cpp=)
 
 $(MAKECMDGOALS): $(MAKECMDGOALS).cpp ../server.hpp ../client.hpp
-	$(CC) $(DEBUG) $(CPPFLAGS) -o $@ $<
-
+	$(CC)  $< -o $@ $(CPPFLAGS)
 clean:
 	-rm -f $(OBJECTS)
  
