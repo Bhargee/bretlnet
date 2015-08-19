@@ -14,105 +14,65 @@
 #include <cstring>
 #include <stdlib.h>
 
+extern "C" {
+    #include <libmill.h>
+}
+
 #define BACKLOG 20
 
 class Server {
     public:
         enum Protocol {TCP, UDP};
-        Server(Protocol p, int portNum, int numThreads, size_t dataLen, 
-                std::function<void(std::vector<char>)> onPacket);
+        Server(Protocol p, unsigned short portNum, size_t dataLen, 
+                void (*callback) (char *));
         ~Server();
-        void Serve(bool async);
+        void Serve(bool blocking);
 
     private:
-        class ThreadPool {
-            public:
-                ThreadPool(size_t nThreads, 
-                        const std::function <void(std::vector<char>)> onPacket);
-                ThreadPool(size_t nThreads);
-                ~ThreadPool();
-                void Push(std::vector<char> buf);
-                void Push(std::function <void()> poolTask);
-            private:
-                size_t nThreads;
-
-                std::function <void(std::vector<char>)> task;
-                std::queue<std::vector<char>> dataQueue;
-
-                std::vector< std::thread > workers;
-                 // synchronization
-                std::mutex queue_mutex;
-                std::condition_variable condition;
-                bool stop;
-        };
-
+        unsigned short port;
         Protocol proto;
-        ThreadPool *workerPool;
+        void (*callback) (char *);
+        size_t packetSize;
+
+        std::thread *asyncServe = NULL;
+        std::function<void()> handleUDP = 
+            [this]() {
+                ipaddr addr = iplocal(NULL, this->port, 0);
+                udpsock s = udplisten(addr);
+                char buf[256];
+                ipaddr a;
+                for(;;) {
+                    size_t sz = udprecv(s, &a, buf, this->packetSize, -1);
+                    this->callback(buf);
+                }
+                udpclose(s);
+            };
 };
 
-inline Server::ThreadPool::ThreadPool(size_t n, 
-        const std::function <void(std::vector<char>)> onPacket) {
-    this->nThreads = n;
-    this->task = std::move(onPacket);
-    this->stop = false;
-    for (size_t i = 0; i < n; ++i) 
-        workers.emplace_back(
-            [this]
-            {
-                for (;;)
-                {
-                std::vector<char> data;
-                    {
-                        std::unique_lock<std::mutex> lock (this->queue_mutex);
-                        this->condition.wait(lock,
-                            [this]{ return this->stop || 
-                                    !this->dataQueue.empty();});
-                        if (this->stop && this->dataQueue.empty())
-                            return;
-                        data = this->dataQueue.front();
-                        this->dataQueue.pop();
-                    }
-                    this->task(data);
-                }
-            }
-        );
+/* Server Impl */
+inline Server::Server(Protocol p, unsigned short portNum, size_t dataLen, void (*cb) (char *)) :
+    port(portNum),
+    proto(p),
+    callback(cb),
+    packetSize(dataLen)
+{
 }
 
-inline Server::ThreadPool::ThreadPool(size_t n) {
-    this->nThreads = n;
-    this->stop = false;
-}
-
-inline void Server::ThreadPool::Push(std::vector<char> data) {
-    {
-        std::unique_lock<std::mutex> lock(queue_mutex);
-        if (stop) {
-            throw std::runtime_error("push on stopped thread pool");
-        }
-        dataQueue.emplace(std::move(data));
+inline Server::~Server() {
+    if (this->asyncServe) {
+        asyncServe->join();
+        delete asyncServe;
     }
-    condition.notify_one();
 }
 
-inline void Server::ThreadPool::Push(std::function <void()> poolTask) {
-    {
-        std::unique_lock<std::mutex> lock(queue_mutex);
-        if (stop) {
-            throw std::runtime_error("push on stopped thread pool");
-        }
-        workers.emplace_back([poolTask](){poolTask();});
+inline void Server::Serve(bool blocking) {
+    if (blocking) {
+        handleUDP();
+    } 
+    else {
+        asyncServe = new std::thread(handleUDP);
     }
-    condition.notify_one();
-}
 
-inline Server::ThreadPool::~ThreadPool() {
-    {
-        std::unique_lock<std::mutex> lock(queue_mutex);
-        stop = true;
-    }
-    condition.notify_all();
-    for(std::thread &worker: workers)
-        worker.join();
 }
 
 #endif
