@@ -5,3 +5,4 @@
 ~~ 3. Check for memory leaks, esp with ai_addr instance ~~
 ~~4. figure out how to avoid copies of std::function param to ThreadPool~~
 ~~5. use C++11 memory model instead of mallocs/allocating everything~~
+6. Test with "real world" scenario, libbot or opencv
