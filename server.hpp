@@ -2,7 +2,6 @@
 #define BRETLNET_SERVER_H
 
 #include <stdlib.h>
-#include <functional>
 
 extern "C" {
     #include <libmill.h>
@@ -23,6 +22,7 @@ class Server {
         Protocol proto;
         void (*callback) (char *);
         size_t packetSize;
+        bool stop = false;
         
         void serveUDP(ipaddr &localAddr);
         void serveTCP(ipaddr &localAddr);
@@ -33,7 +33,9 @@ inline Server::Server(Protocol p, unsigned short portNum, size_t dataLen, void (
     port(portNum), proto(p), callback(cb), packetSize(dataLen) {
 }
 
-inline Server::~Server() {}
+inline Server::~Server() {
+    stop = true;
+}
 
 inline void Server::Serve() {
     ipaddr localAddr = iplocal(NULL, this->port, IPADDR_PREF_IPV4);

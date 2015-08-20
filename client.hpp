@@ -1,19 +1,13 @@
 #ifndef BRETLNET_CLIENT_H
 #define BRETLNET_CLIENT_H
 
-#include <thread>
-#include <vector>
 #include <stdlib.h>
-// socket stuff
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <netdb.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
+#include <exception>
+extern "C" {
+    #include <libmill.h>
+}
 
+#define BACKLOG 20
 
 class Client {
     public:
@@ -22,16 +16,52 @@ class Client {
         Client(Protocol p, const char *connectAddr, int portNum);
         ~Client();
         void Connect();
-        void Send(const std::vector<char> &data);
+        //void Send(const std::vector<char> &data);
         void Send(const char *data, int len);
     private:
-        std::string connectAddr;
-        struct sockaddr ai_addr; // for UDP clients
+        void SendCoro(const char *data, int len);
         Protocol proto;
-        int port, sockfd;
-        // implementation
-        std::vector<std::thread> activeThreads; // to simulate asynchronicity
-        void signalSendErr(int &numbytes);
+        ipaddr remoteAddr;
+        udpsock udps;
+        tcpsock tcps;
 };
+
+inline Client::Client(Protocol p, const char *c, int portNum) :
+    proto(p) {
+        remoteAddr = ipremote(c, portNum, 0, -1);
+}
+
+inline Client::~Client() {}
+
+inline void Client::Connect() {
+    ipaddr localAddr = iplocal(NULL, 0, IPADDR_PREF_IPV4);
+    if (this->proto == UDP) {
+        udps = udplisten(localAddr);
+        if (!udps) 
+           return;
+    }
+    else {
+        tcps = tcplisten(localAddr, BACKLOG);
+        if (!tcps)
+            return;
+    }
+}
+    
+inline void Client::SendCoro(const char *data, int len) {
+    if (this->proto == UDP) {
+        udpsend(udps, remoteAddr, data, len);
+    }
+    else {
+        tcpsend(tcps, data, len, -1);
+        tcpflush(tcps, -1);
+    }
+    if (errno)
+        perror("error sending packet");
+}
+
+
+inline void Client::Send(const char *data, int len) {
+    go(SendCoro(data, len));
+}
 
 #endif
