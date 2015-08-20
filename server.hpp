@@ -1,7 +1,7 @@
 #ifndef BRETLNET_SERVER_H
 #define BRETLNET_SERVER_H
 
-#include <stdlib.h>
+#include <iostream>
 
 extern "C" {
     #include <libmill.h>
@@ -22,10 +22,10 @@ class Server {
         Protocol proto;
         void (*callback) (char *);
         size_t packetSize;
-        bool stop = false;
         
         void serveUDP(ipaddr &localAddr);
         void serveTCP(ipaddr &localAddr);
+        void tcpWrapper(tcpsock as);
 };
 
 /* Server Impl */
@@ -34,7 +34,6 @@ inline Server::Server(Protocol p, unsigned short portNum, size_t dataLen, void (
 }
 
 inline Server::~Server() {
-    stop = true;
 }
 
 inline void Server::Serve() {
@@ -77,10 +76,19 @@ void Server::serveTCP (ipaddr &localAddr) {
         tcpsock as = tcpaccept(serverSock, -1);
         if (!as)
             continue;
-        //go(this->); // TODO
+        go(this->tcpWrapper(as));
     }
 cleanup:
    tcpclose(serverSock); 
+}
+
+void Server::tcpWrapper(tcpsock as) {
+    char buf[this->packetSize];
+    size_t rs = tcprecv(as, buf, this->packetSize, -1);
+    if (rs != this->packetSize)
+        std::cout << "only received " << rs << " bytes" << std::endl;
+    else
+        this->callback(buf);
 }
 
 #endif
