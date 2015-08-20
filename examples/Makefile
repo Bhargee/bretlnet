@@ -3,14 +3,18 @@
 # if none is provided it executes the clean target
 SHELL = /bin/sh
 CC = g++
-CPPFLAGS = -I../ -std=c++11 -lmill -pedantic -Wall -Wextra -O3
+CPPFLAGS = -I../ -std=c++11 -lmill -pedantic -Wall -Wextra #-O3
 DEBUG = -g
 SOURCES = $(shell echo *.cpp)
 OBJECTS = $(SOURCES:.cpp=)
 
+nothing:
+	@echo "please follow make cmd with 'clean' or filename"
+
 $(MAKECMDGOALS): $(MAKECMDGOALS).cpp ../server.hpp ../client.hpp
-	$(CC)  $< -o $@ $(CPPFLAGS)
+	$(CC)  $< -o $@ $(DEBUG) $(CPPFLAGS)
+
 clean:
 	-rm -f $(OBJECTS)
  
-.PHONY: clean
+.PHONY: clean nothing
