@@ -17,9 +17,9 @@ class Client {
         ~Client();
         void Connect();
         //void Send(const std::vector<char> &data);
-        void Send(const char *data, int len);
+        void Send(const unsigned char *data, int len);
     private:
-        void SendCoro(const char *data, int len);
+        void SendCoro(const unsigned char *data, int len);
         Protocol proto;
         ipaddr remoteAddr;
         udpsock udps;
@@ -38,16 +38,16 @@ inline void Client::Connect() {
     if (this->proto == UDP) {
         udps = udplisten(localAddr);
         if (!udps) 
-           return;
+           throw std::runtime_error(strerror(errno));
     }
     else {
         tcps = tcplisten(localAddr, BACKLOG);
         if (!tcps)
-            return;
+            throw std::runtime_error(strerror(errno));
     }
 }
     
-inline void Client::SendCoro(const char *data, int len) {
+inline void Client::SendCoro(const unsigned char *data, int len) {
     if (this->proto == UDP) {
         udpsend(udps, remoteAddr, data, len);
     }
@@ -60,7 +60,7 @@ inline void Client::SendCoro(const char *data, int len) {
 }
 
 
-inline void Client::Send(const char *data, int len) {
+inline void Client::Send(const unsigned char *data, int len) {
     go(SendCoro(data, len));
 }
 
